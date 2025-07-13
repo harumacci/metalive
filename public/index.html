@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meta Live - 大規模メタバース空間</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background: #1a1a1a;
+        }
+        
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 200px;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            white-space: nowrap;
+            margin-bottom: 5px;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            z-index: 200;
+        }
+        
+        .key {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 10px;
+            margin: 0 3px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        #chat-container {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 280px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        #chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 15px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #chat-minimize-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+
+        #chat-minimize-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        #chat-container.minimized {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        #chat-container.minimized:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        #chat-container.minimized #chat-header,
+        #chat-container.minimized #chat-messages,
+        #chat-container.minimized #chat-input-container {
+            display: none;
+        }
+
+        #chat-container.minimized::before {
+            content: "💬";
+            font-size: 24px;
+            color: white;
+        }
+
+        #chat-container.minimized.new-message {
+            animation: chatNotification 1s ease-in-out infinite;
+        }
+
+        @keyframes chatNotification {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        #chat-unread-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4444;
+            color: white;
+            border-radius: 50%;
+            min-width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            animation: badgeAppear 0.3s ease-out;
+            visibility: hidden;
+        }
+
+        @keyframes badgeAppear {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        #chat-container.minimized #chat-unread-badge.show {
+            visibility: visible;
+        }
+
+        #poster-hotspot {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 200;
+            display: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        #poster-hotspot:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+
+        #poster-hotspot.show {
+            display: block;
+            animation: hotspotAppear 0.3s ease-out;
+        }
+
+        @keyframes hotspotAppear {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        #pdf-fullscreen-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #pdf-fullscreen-modal.show {
+            display: flex;
+            animation: modalAppear 0.3s ease-out;
+        }
+
+        @keyframes modalAppear {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        #pdf-fullscreen-content {
+            position: relative;
+            width: 1000px;
+            height: 800px;
+            max-width: 95vw;
+            max-height: 95vh;
+            background: #555;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #pdf-fullscreen-canvas {
+            display: block;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        #pdf-close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 35px;
+            height: 35px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 1001;
+        }
+
+        #pdf-close-btn:hover {
+            background: rgba(0, 0, 0, 0.8);
+            transform: scale(1.1);
+        }
+
+        #pdf-help-text {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 14px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            z-index: 1002;
+            transition: opacity 0.3s ease;
+        }
+
+        #pdf-help-text.fade-out {
+            opacity: 0;
+        }
+
+        #menu-bar {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 14px;
+            padding: 8px 24px;
+            display: flex;
+            gap: 18px;
+            z-index: 150;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+        }
+        .menu-icon-btn {
+            background: none;
+            border: none;
+            outline: none;
+            padding: 6px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.18s, transform 0.18s;
+        }
+        .menu-icon-btn:hover {
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-2px) scale(1.08);
+        }
+        .menu-icon-btn.danger:hover {
+            background: rgba(231,76,60,0.15);
+        }
+        .menu-icon-btn img, .menu-icon-btn svg {
+            width: 24px;
+            height: 24px;
+            display: block;
+        }
+
+        .menu-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .menu-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .menu-button.danger {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        #logout-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        #logout-modal.show {
+            display: flex;
+            animation: modalAppear 0.3s ease-out;
+        }
+
+        #logout-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        #logout-modal h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+
+        #logout-modal p {
+            margin: 0 0 25px 0;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .logout-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .logout-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .logout-btn.cancel {
+            background: #f8f9fa;
+            color: #333;
+        }
+
+        .logout-btn.cancel:hover {
+            background: #e9ecef;
+        }
+
+        .logout-btn.confirm {
+            background: #dc3545;
+            color: white;
+        }
+
+        .logout-btn.confirm:hover {
+            background: #c82333;
+        }
+
+        /* 設定モーダル */
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        #settings-modal.show {
+            display: flex;
+            animation: modalAppear 0.3s ease-out;
+        }
+
+        #settings-modal-content {
+            background: white;
+            width: 800px;
+            height: 600px;
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #settings-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #settings-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        #settings-close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease;
+        }
+
+        #settings-close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        #settings-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #settings-sidebar {
+            width: 200px;
+            background: #f8f9fa;
+            border-right: 1px solid #e9ecef;
+            overflow-y: auto;
+        }
+
+        .settings-category {
+            padding: 15px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #e9ecef;
+            transition: background-color 0.2s ease;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .settings-category:hover {
+            background: #e9ecef;
+        }
+
+        .settings-category.active {
+            background: #667eea;
+            color: white;
+        }
+
+        #settings-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .settings-section {
+            display: none;
+        }
+
+        .settings-section.active {
+            display: block;
+        }
+
+        .settings-section h4 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .setting-item {
+            margin-bottom: 25px;
+        }
+
+        .setting-item label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .setting-item input,
+        .setting-item select,
+        .setting-item textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+            font-family: inherit;
+        }
+
+        .setting-item input:focus,
+        .setting-item select:focus,
+        .setting-item textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .setting-item .setting-description {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-size: 12px;
+            color: #333;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .chat-message {
+            margin-bottom: 8px;
+            padding: 5px 8px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.7);
+            border-left: 3px solid #667eea;
+            animation: messageAppear 0.3s ease-out;
+        }
+
+        .chat-message.own-message {
+            margin-left: 20px;
+            background: rgba(102, 234, 131, 0.1);
+            border-left: none;
+            border-right: 3px solid #68d14edd;
+            text-align: right;
+        }
+
+        .chat-message .message-header {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 2px;
+        }
+
+        .chat-message .message-time {
+            font-size: 10px;
+            color: #666;
+            margin-left: 5px;
+        }
+
+        .chat-message .message-text {
+            color: #333;
+            word-wrap: break-word;
+        }
+
+        /* メンション付きメッセージのスタイル */
+        .chat-message.mention {
+            background: rgba(255, 193, 7, 0.15);
+            border-left: 3px solid #ffc107;
+        }
+
+        .chat-message.own-message.mention {
+            background: rgba(255, 193, 7, 0.2);
+            border-right: 3px solid #ffc107;
+        }
+
+        .mention-text {
+            color: #e67e22;
+            font-weight: bold;
+        }
+
+        /* メンションリストのスタイル */
+        .mention-player-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s;
+            font-size: 12px;
+        }
+
+        .mention-player-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .mention-player-item.selected {
+            background: rgba(102, 126, 234, 0.2);
+        }
+
+        .mention-player-item:last-child {
+            border-bottom: none;
+        }
+
+        /* メンション通知の波紋アニメーション */
+        .mention-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 193, 7, 0.3);
+            pointer-events: none;
+            z-index: 3000;
+            animation: mentionRipple 2s ease-out forwards;
+        }
+
+        @keyframes mentionRipple {
+            0% {
+                transform: scale(0);
+                opacity: 0.8;
+            }
+            50% {
+                transform: scale(9.6);
+                opacity: 0.6;
+            }
+            100% {
+                transform: scale(64.5);
+                opacity: 0;
+            }
+        }
+
+        /* 複数の波紋を重ねるためのコンテナ */
+        .mention-notifications {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 3000;
+            pointer-events: none;
+        }
+
+        @keyframes messageAppear {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #chat-input-container {
+            display: flex;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 0 0 10px 10px;
+            gap: 8px;
+        }
+
+        #chat-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+            font-size: 12px;
+            transition: border-color 0.3s ease;
+        }
+
+        #chat-input:focus {
+            border-color: #667eea;
+        }
+
+        #chat-send-btn {
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            min-width: 40px;
+        }
+
+        #chat-send-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        #chat-send-btn:active {
+            transform: translateY(0);
+        }
+
+        #chat-send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* レスポンシブデザイン */
+        @media (max-width: 768px) {
+            #controls {
+                top: auto;
+                bottom: 20px;
+                left: 25%;
+                transform: translateX(-50%);
+                max-width: 400px;
+            }
+            
+            #info {
+                max-width: 180px;
+            }
+
+            #chat-container {
+                width: 300px;
+                height: 200px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #info, #controls {
+                font-size: 12px;
+                padding: 10px;
+            }
+            
+            #controls {
+                max-width: 400px;
+            }
+
+            #chat-container {
+                width: 280px;
+                height: 180px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            #chat-container.minimized {
+                left: 10px;
+                transform: none;
+            }
+        }
+
+        #mic-analyzer {
+            position: absolute;
+            top: 170px;
+            left: 10px;
+            width: 200px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 12px;
+            transition: opacity 0.3s ease;
+        }
+        #mic-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        #mic-status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e74c3c; /* 赤: デフォルトはオフ/ミュート */
+            margin-right: 8px;
+            transition: background-color 0.3s ease;
+        }
+        #mic-status-indicator.active {
+            background: #2ecc71; /* 緑: オン */
+            animation: pulse 2s infinite;
+        }
+        #mic-level-bar {
+            display: flex;
+            height: 5px;
+            gap: 2px;
+        }
+        .level-block {
+            flex: 1;
+            background: rgba(255,255,255,0.15);
+            border-radius: 1px;
+            transition: background-color 0.1s ease;
+        }
+        .level-block.active {
+            background: linear-gradient(to right, #667eea, #764ba2);
+        }
+        .level-block.active[data-level='60'],
+        .level-block.active[data-level='70'],
+        .level-block.active[data-level='80'] {
+            background: #f1c40f; /* 黄色 */
+        }
+        .level-block.active[data-level='90'],
+        .level-block.active[data-level='100'] {
+            background: #e74c3c; /* 赤色 */
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+        }
+
+        #player-list-container {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 250px;
+            max-height: 600px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease-in-out;
+        }
+
+        #player-list-container h4 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 8px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #player-list-minimize-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0 8px;
+            line-height: 1;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+
+        #player-list-minimize-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        #player-list-container.minimized {
+            width: auto;
+            height: auto;
+            max-height: 50px;
+            padding: 8px 12px;
+        }
+
+        #player-list-container.minimized h4 {
+            border-bottom: none;
+            margin: 0;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        #player-list-container.minimized #player-list {
+            display: none;
+        }
+
+        #player-list-container.minimized #player-list-minimize-btn {
+            transform: rotate(180deg);
+        }
+        
+        #player-list-container.minimized #player-list-minimize-btn::before {
+            content: "👥";
+            font-size: 18px;
+        }
+
+        #player-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .player-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 5px;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+
+        .player-item:not(:last-child) {
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .player-item.is-local {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .player-name {
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex-grow: 1;
+        }
+
+        .player-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: 10px;
+        }
+
+        .player-controls button {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .player-controls button:hover {
+            opacity: 1;
+        }
+
+        .player-controls button:disabled {
+            cursor: default;
+            opacity: 0.5;
+        }
+
+        .player-controls svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            #settings-modal-content {
+                width: 95vw;
+                height: 90vh;
+                flex-direction: column;
+            }
+
+            #settings-sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 150px;
+                border-right: none;
+                border-bottom: 1px solid #e9ecef;
+                display: flex;
+                overflow-x: auto;
+            }
+
+            .settings-category {
+                white-space: nowrap;
+                border-bottom: none;
+                border-right: 1px solid #e9ecef;
+                min-width: 120px;
+            }
+
+            #settings-content {
+                flex: 1;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div id="loading">読み込み中...</div>
+    
+    <div id="info">
+        <h3 style="margin: 0 0 10px 0;">Meta Live</h3>
+        <div>プレイヤー名: <span id="playerName">-</span></div>
+        <div>接続中: <span id="onlineCount">0</span>人</div>
+        <div>FPS: <span id="fps">0</span></div>
+        <div>Ping: <span id="ping">0</span>ms</div>
+        <div>位置: <span id="position">0, 0, 0</span></div>
+    </div>
+    
+    <div id="player-list-container">
+        <h4>
+            <span>参加者一覧</span>
+            <button id="player-list-minimize-btn" title="最小化/最大化">−</button>
+        </h4>
+        <ul id="player-list">
+            <!-- プレイヤーリストはJSによって動的に生成されます -->
+        </ul>
+    </div>
+
+    <div id="controls">
+        <h3 style="margin: 0 0 5px 0; font-weight: 600;">操作方法</h3>
+        <div class="controls-row">
+            <span>移動: <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span></span>
+            <span style="margin-left: 20px;">視点回転: <span class="key">クリック + マウス</span></span>
+        </div>
+        <div class="controls-row">
+            <span>ポスターを見る: <span class="key">E</span></span>
+            <span style="margin-left: 20px;">ジャンプ: <span class="key">スペース</span></span>
+        </div>
+        <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">
+            ※ 画面クリック後に視点回転有効
+        </div>
+    </div>
+
+    <div id="mic-analyzer">
+        <div id="mic-status">
+            <span id="mic-status-indicator"></span>
+            <span id="mic-level-text">ミュート中</span>
+        </div>
+        <div id="mic-level-bar">
+            <div class="level-block" data-level="10"></div>
+            <div class="level-block" data-level="20"></div>
+            <div class="level-block" data-level="30"></div>
+            <div class="level-block" data-level="40"></div>
+            <div class="level-block" data-level="50"></div>
+            <div class="level-block" data-level="60"></div>
+            <div class="level-block" data-level="70"></div>
+            <div class="level-block" data-level="80"></div>
+            <div class="level-block" data-level="90"></div>
+            <div class="level-block" data-level="100"></div>
+        </div>
+    </div>
+
+    <div id="chat-container">
+        <div id="chat-unread-badge">0</div>
+        <div id="chat-header">
+            <span>💬 チャット</span>
+            <button id="chat-minimize-btn">−</button>
+        </div>
+        <div id="chat-messages">
+            <!-- チャットメッセージがここに表示されます -->
+        </div>
+        <div id="chat-input-container">
+            <input type="text" id="chat-input" placeholder="メッセージを入力... @でメンション" maxlength="200">
+            <button id="chat-send-btn">➤</button>
+        </div>
+        <!-- メンション用プレイヤー一覧 -->
+        <div id="mention-list" style="display:none; position:absolute; bottom:100%; left:0; right:0; background:rgba(255,255,255,0.95); border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.2); max-height:150px; overflow-y:auto; z-index:1000; margin-bottom:5px;">
+            <div style="padding:8px 12px; font-size:11px; color:#666; border-bottom:1px solid #eee;">プレイヤーを選択:</div>
+            <div id="mention-players"></div>
+        </div>
+    </div>
+
+    <div id="poster-hotspot">📄 ポスターを見る (Eキー)</div>
+
+    <div id="pdf-fullscreen-modal">
+        <div id="pdf-fullscreen-content">
+            <button id="pdf-close-btn">×</button>
+            <canvas id="pdf-fullscreen-canvas"></canvas>
+            <button id="pdf-pen-btn" style="position:absolute;top:60px;right:20px;width:48px;height:48px;background:#00000099;border-radius:50%;border:none;box-shadow:0 2px 8px #0006;display:flex;align-items:center;justify-content:center;z-index:1002;cursor:pointer;"><img src="icons/pen.png" alt="ペン" style="width:28px;height:28px;"></button>
+            <div id="pdf-help-text">マウスホイール：ズーム | ドラッグ：移動 | Esc：閉じる</div>
+        </div>
+    </div>
+
+    <div id="menu-bar">
+        <button class="menu-icon-btn" title="ミュート" id="mic-btn"><img src="icons/mic.png" alt="ミュート" style="width:24px;height:24px;"></button>
+        <button class="menu-icon-btn" title="スピーカー" id="speaker-btn"><img src="icons/speaker.png" alt="スピーカー" style="width:24px;height:24px;"></button>
+        <button class="menu-icon-btn" title="スタンプ" id="stamp-btn"><img src="icons/stamp.png" alt="スタンプ" style="width:24px;height:24px;"></button>
+        <button class="menu-icon-btn" title="設定" id="settings-btn"><img src="icons/setting.png" alt="設定" style="width:24px;height:24px;"></button>
+        <button class="menu-icon-btn danger" id="logout-btn" title="ログアウト"><img src="icons/logout.png" alt="ログアウト" style="width:24px;height:24px;vertical-align:middle;"></button>
+    </div>
+
+    <!-- スタンプ（絵文字）メニュー -->
+    <div id="emoji-menu" style="display:none; position:fixed; bottom:90px; left:50%; transform:translateX(-50%); z-index:2000; background:#eee; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.12); padding:10px 14px; display:flex; gap:8px; flex-wrap:wrap; min-width:180px; max-width:70vw;">
+        <!-- JSで絵文字を動的に追加 -->
+    </div>
+
+    <!-- メンション通知の波紋コンテナ -->
+    <div id="mention-notifications" class="mention-notifications"></div>
+
+    <div id="logout-modal">
+        <div id="logout-modal-content">
+            <h3>ログアウト確認</h3>
+            <p>本当にログアウトしますか？<br>メタバースから退出します。</p>
+            <div class="logout-buttons">
+                <button class="logout-btn cancel" id="logout-cancel-btn">キャンセル</button>
+                <button class="logout-btn confirm" id="logout-confirm-btn">ログアウト</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 設定モーダル -->
+    <div id="settings-modal">
+        <div id="settings-modal-content">
+            <div id="settings-header">
+                <h3>設定</h3>
+                <button id="settings-close-btn">×</button>
+            </div>
+            <div id="settings-body">
+                <div id="settings-sidebar">
+                    <div class="settings-category" data-section="general">一般</div>
+                    <div class="settings-category" data-section="audio">音声</div>
+                    <div class="settings-category" data-section="video">動画</div>
+                    <div class="settings-category" data-section="network">ネットワーク</div>
+                </div>
+                <div id="settings-content">
+                    <div class="settings-section active" id="general-section">
+                        <h4>一般</h4>
+                        <div class="setting-item">
+                            <label for="language">言語:</label>
+                            <select id="language">
+                                <option value="ja">日本語</option>
+                                <option value="en">English</option>
+                            </select>
+                        </div>
+                    </div>
+                                         <div class="settings-section" id="audio-section">
+                         <h4>音声</h4>
+                         <div class="setting-item">
+                             <label for="micDevice">使用するマイク:</label>
+                             <select id="micDevice">
+                                 <option value="">デフォルト</option>
+                             </select>
+                             <div class="setting-description">使用するマイクデバイスを選択してください</div>
+                         </div>
+                         <div class="setting-item">
+                             <label for="speakerDevice">使用するスピーカー:</label>
+                             <select id="speakerDevice">
+                                 <option value="">デフォルト</option>
+                             </select>
+                             <div class="setting-description">使用するスピーカーデバイスを選択してください</div>
+                         </div>
+                         <div class="setting-item">
+                             <label for="micVolume">マイク音量:</label>
+                             <input type="range" id="micVolume" min="0" max="100" value="50">
+                             <div class="setting-description">マイクの入力音量を調整します</div>
+                         </div>
+                         <div class="setting-item">
+                             <label for="speakerVolume">スピーカー音量:</label>
+                             <input type="range" id="speakerVolume" min="0" max="100" value="50">
+                             <div class="setting-description">スピーカーの出力音量を調整します</div>
+                         </div>
+                         <div class="setting-item">
+                             <label for="voiceChat">音声チャット:</label>
+                             <select id="voiceChat">
+                                 <option value="on">オン</option>
+                                 <option value="off">オフ</option>
+                             </select>
+                             <div class="setting-description">音声チャット機能の有効/無効を切り替えます</div>
+                         </div>
+                     </div>
+                    <div class="settings-section" id="video-section">
+                        <h4>動画</h4>
+                        <div class="setting-item">
+                            <label for="videoQuality">動画品質:</label>
+                            <select id="videoQuality">
+                                <option value="low">低</option>
+                                <option value="medium">中</option>
+                                <option value="high">高</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="fpsLimit">FPS制限:</label>
+                            <select id="fpsLimit">
+                                <option value="30">30</option>
+                                <option value="60">60</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="settings-section" id="network-section">
+                        <h4>ネットワーク</h4>
+                        <div class="setting-item">
+                            <label for="peerJsServer">PeerJSサーバーURL:</label>
+                            <input type="text" id="peerJsServer" value="wss://peerjs.com">
+                        </div>
+                        <div class="setting-item">
+                            <label for="iceServers">ICEサーバー:</label>
+                            <textarea id="iceServers" rows="3" placeholder="stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302,turn:numb.viagenie.ca,turn:numb.viagenie.ca:80,turn:numb.viagenie.ca:443,turns:numb.viagenie.ca:5349">stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302,turn:numb.viagenie.ca,turn:numb.viagenie.ca:80,turn:numb.viagenie.ca:443,turns:numb.viagenie.ca:5349</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="metaverse.js"></script>
+</body>
+</html> 
