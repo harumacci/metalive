@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メタバース - ログイン</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: bold;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .join-button {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .join-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .join-button:active {
+            transform: translateY(0);
+        }
+
+        .join-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">🌐 メタバース</div>
+        <div class="subtitle">バーチャル空間に参加してください</div>
+        
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="nameID">ユーザー名</label>
+                <input type="text" id="nameID" name="nameID" placeholder="ユーザー名を入力してください" required maxlength="20">
+            </div>
+            
+            <button type="submit" class="join-button" id="joinButton">
+                参加する
+            </button>
+            
+            <div class="error-message" id="errorMessage"></div>
+            
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <p>参加中...</p>
+            </div>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const loginForm = document.getElementById('loginForm');
+        const nameIDInput = document.getElementById('nameID');
+        const joinButton = document.getElementById('joinButton');
+        const errorMessage = document.getElementById('errorMessage');
+        const loading = document.getElementById('loading');
+
+        // エラーメッセージを表示
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            loading.style.display = 'none';
+            joinButton.disabled = false;
+        }
+
+        // ローディング状態を表示
+        function showLoading() {
+            loading.style.display = 'block';
+            errorMessage.style.display = 'none';
+            joinButton.disabled = true;
+        }
+
+        // フォーム送信処理
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const nameID = nameIDInput.value.trim();
+            
+            if (!nameID) {
+                showError('ユーザー名を入力してください');
+                return;
+            }
+
+            if (nameID.length > 20) {
+                showError('ユーザー名は20文字以内にしてください');
+                return;
+            }
+
+            showLoading();
+            
+            // サーバーにログインリクエストを送信
+            socket.emit('login', { nameID });
+        });
+
+        // サーバーからのレスポンス処理
+        socket.on('loginSuccess', (data) => {
+            // ログイン成功時、nameIDをlocalStorageに保存してメタバースに遷移
+            localStorage.setItem('nameID', data.nameID);
+            localStorage.setItem('playerID', data.playerID);
+            window.location.href = 'index.html';
+        });
+
+        socket.on('loginError', (data) => {
+            showError(data.message);
+        });
+
+        // 入力フィールドにフォーカス
+        nameIDInput.focus();
+    </script>
+</body>
+</html> 
